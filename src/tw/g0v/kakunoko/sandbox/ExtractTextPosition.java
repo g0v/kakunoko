@@ -8,6 +8,11 @@ import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.util.PDFTextStripper;
 import org.apache.pdfbox.util.TextPosition;
 
+/**
+ * 字元攔截練習
+ * 
+ * @author raymond
+ */
 public class ExtractTextPosition extends PDFTextStripper {
 
 	/**
@@ -25,10 +30,11 @@ public class ExtractTextPosition extends PDFTextStripper {
 	@Override
 	protected void processTextPosition(TextPosition txp) {
 		System.out.printf(
-			"字元: \"%s\", 位置: (%.3f, %.3f)\n",
+			"字元: \"%s\", 位置: (%.3f, %.3f), 預估下個字元的位置: (%.3f, %3$.3f)\n",
 			txp.getCharacter(),
 			txp.getX(),
-			txp.getY()
+			txp.getY(),
+			txp.getX()+txp.getWidth()
 		);
 	}
 
