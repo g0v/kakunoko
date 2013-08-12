@@ -4,6 +4,8 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
@@ -12,7 +14,7 @@ import org.apache.pdfbox.util.TextPosition;
 
 import tw.g0v.kakunoko.types.TextBound;
 
-public class ExtractParagraph extends PDFTextStripper {
+public class ParagraphStatistic extends PDFTextStripper {
 	
 	// 文字範圍存放區
 	private List<TextBound> textBounds = new ArrayList<TextBound>();
@@ -28,9 +30,18 @@ public class ExtractParagraph extends PDFTextStripper {
 	private TextPosition txpFirst = null;
 	private TextPosition txpPrevious = null;
 	
+	// y1 統計數據
+	private Map<Float,Integer> yCount = new TreeMap<Float,Integer>();
+	
+	// 水平鄰近程度判別值
 	private static final float X_NEARBY_THRESHOLD = 10;
 	
-	public ExtractParagraph() throws IOException {
+	/**
+	 * 沒屁用
+	 * 
+	 * @throws IOException
+	 */
+	public ParagraphStatistic() throws IOException {
 		// TODO Auto-generated constructor stub
 	}
 	
@@ -60,10 +71,36 @@ public class ExtractParagraph extends PDFTextStripper {
 		// 垂直合併
 		mergeBound();
 		
-		// 顯示
+		// 統計
 		for(TextBound tb2 : textBounds) {
-			System.out.println(tb2);
-			System.out.println();
+			if(yCount.containsKey(tb2.getY1())) {
+				yCount.put(tb2.getY1(), yCount.get(tb2.getY1())+1);
+			} else {
+				yCount.put(tb2.getY1(), 1);
+			}
+		}
+		
+		// 容許誤差處理 (Y值接近時，即使不相等也視為同一列)
+		Float[] yKeys = new Float[yCount.size()];
+		yCount.keySet().toArray(yKeys);
+		float currY, prevY = yKeys[0];
+		for(int i=1;i<yKeys.length;i++) {
+			currY = yKeys[i];
+			if(currY-prevY<3) {
+				yCount.put(prevY,yCount.get(prevY)+yCount.get(currY));
+				yCount.remove(currY);
+			} else {
+				prevY = currY;
+			}
+		}
+		
+		// 顯示統計值
+		for(float y1 : yCount.keySet()) {
+			if(yCount.get(y1)==1) {
+				System.out.format("y1=%.2f 出現 %d 次\n", y1, yCount.get(y1));
+			} else {
+				System.out.format("y1=%.2f 出現 %d 次 (可能有表格)\n", y1, yCount.get(y1));
+			}
 		}
 	}
 
@@ -75,7 +112,7 @@ public class ExtractParagraph extends PDFTextStripper {
 			TextBound currTb = textBounds.get(i);
 			TextBound nextTb = textBounds.get(i+1);
 			
-			while(currTb.getX1()==nextTb.getX1() && nextTb.getY1()-currTb.getY2()<10) {
+			while(currTb.getX1()==nextTb.getX1() && nextTb.getY1()-currTb.getY2()<15) {
 				currTb.setString(currTb.getString()+"\n"+nextTb.getString());
 				currTb.setX2(Math.max(currTb.getX2(), nextTb.getX2()));
 				currTb.setY2(nextTb.getY2());
@@ -133,7 +170,7 @@ public class ExtractParagraph extends PDFTextStripper {
 		
 		PDDocument pd = PDDocument.load(new File(docname));
 		PDPage page0 = (PDPage)pd.getDocumentCatalog().getAllPages().get(pagenum);
-		ExtractParagraph es = new ExtractParagraph();
+		ParagraphStatistic es = new ParagraphStatistic();
 		es.processStream(page0, page0.getResources(), page0.getContents().getStream());
 		es.end();
 	}
